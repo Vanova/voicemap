@@ -70,7 +70,7 @@ siamese.fit_generator(
     validation_steps=100,
     epochs=num_epochs,
     workers=multiprocessing.cpu_count(),
-    verbose=2,
+    verbose=1,
     use_multiprocessing=True,
     callbacks=[
         # First generate custom n-shot classification metric
@@ -79,9 +79,9 @@ siamese.fit_generator(
             preprocessor=batch_preprocessor,
         ),
         # Then log and checkpoint
-        CSVLogger(PATH + '/logs/{}.csv'.format(param_str)),
+        CSVLogger(os.path.join(PATH, '/logs/{}.csv'.format(param_str))),
         ModelCheckpoint(
-            PATH + '/models/{}.hdf5'.format(param_str),
+            os.path.join(PATH, '/models/{}.hdf5'.format(param_str)),
             monitor='val_{}-shot_acc'.format(n_shot_classification),
             mode='max',
             save_best_only=True,
@@ -93,7 +93,7 @@ siamese.fit_generator(
             verbose=1
         ),
         TensorBoard(
-            log_dir='logs',
+            log_dir=os.path.join(PATH, 'logs'),
             write_graph=True
         )
     ]
