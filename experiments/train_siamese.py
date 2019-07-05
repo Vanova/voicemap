@@ -1,7 +1,7 @@
 import os
 from keras.optimizers import Adam
 from keras.utils import plot_model
-from keras.callbacks import CSVLogger, ModelCheckpoint, ReduceLROnPlateau
+from keras.callbacks import CSVLogger, ModelCheckpoint, ReduceLROnPlateau, TensorBoard
 import multiprocessing
 
 from voicemap.utils import preprocess_instances, NShotEvaluationCallback, BatchPreProcessor
@@ -40,8 +40,9 @@ param_str = 'siamese__filters_{}__embed_{}__drop_{}__pad={}'.format(filters, emb
 ###################
 # Create datasets #
 ###################
-train = LibriSpeechDataset(training_set, n_seconds, pad=pad)
-valid = LibriSpeechDataset(validation_set, n_seconds, stochastic=False, pad=pad)
+data_dir = '/home/vano/wrkdir/datasets/LibriSpeech'
+train = LibriSpeechDataset(data_dir, training_set, n_seconds, pad=pad)
+valid = LibriSpeechDataset(data_dir, validation_set, n_seconds, stochastic=False, pad=pad)
 
 batch_preprocessor = BatchPreProcessor('siamese', preprocess_instances(downsampling))
 train_generator = (batch_preprocessor(batch) for batch in train.yield_verification_batches(batchsize))
@@ -69,6 +70,7 @@ siamese.fit_generator(
     validation_steps=100,
     epochs=num_epochs,
     workers=multiprocessing.cpu_count(),
+    verbose=2,
     use_multiprocessing=True,
     callbacks=[
         # First generate custom n-shot classification metric
@@ -89,6 +91,10 @@ siamese.fit_generator(
             monitor='val_{}-shot_acc'.format(n_shot_classification),
             mode='max',
             verbose=1
+        ),
+        TensorBoard(
+            log_dir='logs',
+            write_graph=True
         )
     ]
 )

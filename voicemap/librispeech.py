@@ -28,8 +28,9 @@ class LibriSpeechDataset(Sequence):
         then a random number of 0s will be appended/prepended to each side to pad the sequence to the desired length.
         cache: bool. Whether or not to use the cached index file
     """
-    def __init__(self, subsets, seconds, label='speaker', stochastic=True, pad=False, cache=True):
+    def __init__(self, data_dir, subsets, seconds, label='speaker', stochastic=True, pad=False, cache=True):
         assert label in ('sex', 'speaker'), 'Label type must be one of (\'sex\', \'speaker\')'
+        self.data_dir = data_dir
         self.subset = subsets
         self.fragment_seconds = seconds
         self.fragment_length = int(seconds * LIBRISPEECH_SAMPLING_RATE)
@@ -69,7 +70,8 @@ class LibriSpeechDataset(Sequence):
             audio_files = []
             for subset, found in found_cache.iteritems():
                 if not found:
-                    audio_files += self.index_subset(subset)
+                    subset_path = os.path.join(self.data_dir, subset)
+                    audio_files += self.index_subset(subset_path)
 
             # Merge individual audio files with indexing dataframe
             df = pd.merge(df, pd.DataFrame(audio_files))
@@ -240,22 +242,22 @@ class LibriSpeechDataset(Sequence):
         return query_sample, support_set_samples
 
     @staticmethod
-    def index_subset(subset):
+    def index_subset(subset_path):
         """
         Index a subset by looping through all of it's files and recording their speaker ID, filepath and length.
-        :param subset: Name of the subset
+        :param subset_path: Name of the subset
         :return: A list of dicts containing information about all the audio files in a particular subset of the
         LibriSpeech dataset
         """
         audio_files = []
-        print('Indexing {}...'.format(subset))
+        print('Indexing {}...'.format(subset_path))
         # Quick first pass to find total for tqdm bar
         subset_len = 0
-        for root, folders, files in os.walk(PATH + '/data/LibriSpeech/{}/'.format(subset)):
+        for root, folders, files in os.walk(subset_path):
             subset_len += len([f for f in files if f.endswith('.flac')])
 
         progress_bar = tqdm(total=subset_len)
-        for root, folders, files in os.walk(PATH + '/data/LibriSpeech/{}/'.format(subset)):
+        for root, folders, files in os.walk(subset_path):
             if len(files) == 0:
                 continue
 
