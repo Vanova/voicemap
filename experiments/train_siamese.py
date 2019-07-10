@@ -2,6 +2,7 @@ import os
 from keras.optimizers import Adam
 from keras.utils import plot_model
 from keras.callbacks import CSVLogger, ModelCheckpoint, ReduceLROnPlateau, TensorBoard
+from voicemap.callbacks import SiameseValidator
 import multiprocessing
 
 from voicemap.utils import preprocess_instances, NShotEvaluationCallback, BatchPreProcessor
@@ -9,10 +10,8 @@ from voicemap.models import get_baseline_convolutional_encoder, build_siamese_ne
 from voicemap.librispeech import LibriSpeechDataset
 from config import LIBRISPEECH_SAMPLING_RATE, PATH
 
-
 # Mute excessively verbose Tensorflow output
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
 
 ##############
 # Parameters #
@@ -32,10 +31,11 @@ num_evaluation_tasks = 500
 n_shot_classification = 1
 k_way_classification = 5
 
+val_metrics = ['pooled_eer', 'accuracy', 'micro_f1']
+
 # Derived parameters
 input_length = int(LIBRISPEECH_SAMPLING_RATE * n_seconds / downsampling)
-param_str = 'siamese__filters_{}__embed_{}__drop_{}__pad={}'.format(filters, embedding_dimension, dropout, pad  )
-
+param_str = 'siamese__filters_{}__embed_{}__drop_{}__pad={}'.format(filters, embedding_dimension, dropout, pad)
 
 ###################
 # Create datasets #
@@ -48,7 +48,6 @@ batch_preprocessor = BatchPreProcessor('siamese', preprocess_instances(downsampl
 train_generator = (batch_preprocessor(batch) for batch in train.yield_verification_batches(batchsize))
 valid_generator = (batch_preprocessor(batch) for batch in valid.yield_verification_batches(batchsize))
 
-
 ################
 # Define model #
 ################
@@ -56,13 +55,42 @@ encoder = get_baseline_convolutional_encoder(filters, embedding_dimension, dropo
 siamese = build_siamese_net(encoder, (input_length, 1), distance_metric='uniform_euclidean')
 opt = Adam(clipnorm=1.)
 siamese.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
-plot_model(siamese, show_shapes=True, to_file=PATH + '/plots/siamese.png')
+# plot_model(siamese, show_shapes=True, to_file=PATH + '/plots/siamese.png')
 print siamese.summary()
-
 
 #################
 # Training Loop #
 #################
+callbacks = [
+    # First generate custom n-shot classification metric
+    NShotEvaluationCallback(
+        num_evaluation_tasks, n_shot_classification, k_way_classification, valid,
+        preprocessor=batch_preprocessor),
+    SiameseValidator(batch_gen=valid,
+                     num_tasks=num_evaluation_tasks,
+                     n_shot=1,
+                     k_way=2, # number of speakers sampled
+                     metrics=val_metrics,
+                     monitor='pooled_eer',
+                     mode='min',
+                     preprocessor=batch_preprocessor),
+    # Then log and checkpoint
+    CSVLogger(os.path.join(PATH, 'logs/{}.csv'.format(param_str))),
+    ModelCheckpoint(
+        os.path.join(PATH, 'models/{}.hdf5'.format(param_str)),
+        monitor='pooled_eer',
+        mode='min',
+        save_best_only=True,
+        verbose=True),
+    ReduceLROnPlateau(
+        monitor='pooled_eer',
+        mode='min',
+        verbose=1),
+    TensorBoard(
+        log_dir=os.path.join(PATH, 'logs'),
+        write_graph=True)
+]
+
 siamese.fit_generator(
     generator=train_generator,
     steps_per_epoch=evaluate_every_n_batches,
@@ -72,29 +100,5 @@ siamese.fit_generator(
     workers=multiprocessing.cpu_count(),
     verbose=1,
     use_multiprocessing=True,
-    callbacks=[
-        # First generate custom n-shot classification metric
-        NShotEvaluationCallback(
-            num_evaluation_tasks, n_shot_classification, k_way_classification, valid,
-            preprocessor=batch_preprocessor,
-        ),
-        # Then log and checkpoint
-        CSVLogger(os.path.join(PATH, '/logs/{}.csv'.format(param_str))),
-        ModelCheckpoint(
-            os.path.join(PATH, '/models/{}.hdf5'.format(param_str)),
-            monitor='val_{}-shot_acc'.format(n_shot_classification),
-            mode='max',
-            save_best_only=True,
-            verbose=True
-        ),
-        ReduceLROnPlateau(
-            monitor='val_{}-shot_acc'.format(n_shot_classification),
-            mode='max',
-            verbose=1
-        ),
-        TensorBoard(
-            log_dir=os.path.join(PATH, 'logs'),
-            write_graph=True
-        )
-    ]
+    callbacks=callbacks
 )
