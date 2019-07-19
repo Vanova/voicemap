@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export PYTHONPATH="`pwd`/../:$PYTHONPATH"
-source activate ai
+source activate ai3
 
 model=siamese
 log_dir=../logs/$(date "+%d_%b_%Y")

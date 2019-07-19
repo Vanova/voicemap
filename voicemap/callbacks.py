@@ -1,7 +1,7 @@
 import numpy as np
 from tqdm import tqdm
 from keras.callbacks import Callback
-import src.utils.metrics as mtx
+import voicemap.metrics as mtx
 
 
 class ModelValidator(Callback):

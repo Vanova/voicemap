@@ -178,17 +178,19 @@ class LibriSpeechDataset(Sequence):
         :return: Inputs for both sides of the siamese network and outputs indicating whether they are from the same
         speaker or not.
         """
-        alike_pairs = self.get_alike_pairs(batchsize / 2)
+        alike_pairs = self.get_alike_pairs(batchsize // 2)
 
         # Take only the instances not labels and stack to form a batch of pairs of instances from the same speaker
-        input_1_alike = np.stack([self[i][0] for i in zip(*alike_pairs)[0]])
-        input_2_alike = np.stack([self[i][0] for i in zip(*alike_pairs)[1]])
+        # input_1_alike = np.stack([self[i][0] for i in zip(*alike_pairs)[0]])
+        # input_2_alike = np.stack([self[i][0] for i in zip(*alike_pairs)[1]])
+        input_1_alike = np.stack([self[i][0] for i in list(zip(*alike_pairs))[0]])
+        input_2_alike = np.stack([self[i][0] for i in list(zip(*alike_pairs)[1])])
 
         differing_pairs = self.get_differing_pairs(batchsize / 2)
 
         # Take only the instances not labels and stack to form a batch of pairs of instances from different speakers
-        input_1_different = np.stack([self[i][0] for i in zip(*differing_pairs)[0]])
-        input_2_different = np.stack([self[i][0] for i in zip(*differing_pairs)[1]])
+        input_1_different = np.stack([self[i][0] for i in list(zip(*differing_pairs)[0])])
+        input_2_different = np.stack([self[i][0] for i in list(zip(*differing_pairs)[1])])
 
         input_1 = np.vstack([input_1_alike, input_1_different])[:, :, np.newaxis]
         input_2 = np.vstack([input_2_alike, input_2_different])[:, :, np.newaxis]

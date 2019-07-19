@@ -18,7 +18,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 ##############
 n_seconds = 3
 downsampling = 4
-batchsize = 64
+batchsize = 32 # 64
 filters = 128
 embedding_dimension = 64
 dropout = 0.0

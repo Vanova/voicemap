@@ -13,7 +13,7 @@ def eer(y_true, y_pred):
     fpr, tpr, thresholds = skm.roc_curve(y_true, y_pred, drop_intermediate=True)
 
     eps = 1E-6
-    points = [(0, 0)] + zip(fpr, tpr)
+    points = [(0, 0)] + list(zip(fpr, tpr))
     for i, point in enumerate(points):
         if point[0] + eps >= 1 - point[1]:
             break
