@@ -39,7 +39,7 @@ def class_wise_eer(y_true, y_pred):
     """
     cw_eer = []
     smp, n_clc = y_true.shape
-    for cl in xrange(n_clc):
+    for cl in range(n_clc):
         er = eer(y_true=y_true[:, cl], y_pred=y_pred[:, cl])
         cw_eer.append(er)
     return cw_eer

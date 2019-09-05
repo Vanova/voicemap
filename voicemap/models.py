@@ -3,41 +3,65 @@ from keras import layers
 import keras.backend as K
 
 
-def get_baseline_convolutional_encoder(filters, embedding_dimension, input_shape=None, dropout=0.05):
-    encoder = Sequential()
+def get_baseline_convolutional_encoder(embedding_dimension, input_shape, config):
+    """
+    input shape: [batch_sz; frame_wnd; band; channel]
+    """
+    print('DNN input shape', input_shape)
 
-    # Initial conv
-    if input_shape is None:
-        # In this case we are using the encoder as part of a siamese network and the input shape will be determined
-        # automatically based on the input shape of the siamese network
-        encoder.add(layers.Conv1D(filters, 32, padding='same', activation='relu'))
+    if K.image_dim_ordering() == 'tf':
+        channel_axis = 3
+        freq_axis = 2
     else:
-        # In this case we are using the encoder to build a classifier network and the input shape must be defined
-        encoder.add(layers.Conv1D(filters, 32, padding='same', activation='relu', input_shape=input_shape))
-    encoder.add(layers.BatchNormalization())
-    encoder.add(layers.SpatialDropout1D(dropout))
-    encoder.add(layers.MaxPool1D(4, 4))
+        raise NotImplementedError('[ERROR] Only for TensorFlow background.')
 
-    # Further convs
-    encoder.add(layers.Conv1D(2*filters, 3, padding='same', activation='relu'))
-    encoder.add(layers.BatchNormalization())
-    encoder.add(layers.SpatialDropout1D(dropout))
-    encoder.add(layers.MaxPool1D())
+    nb_filters = config['feature_maps']
+    dropout_rate = config['dropout']
+    pool_sz = [4, 2, 2]  # max-pooling across frequency only
 
-    encoder.add(layers.Conv1D(3 * filters, 3, padding='same', activation='relu'))
-    encoder.add(layers.BatchNormalization())
-    encoder.add(layers.SpatialDropout1D(dropout))
-    encoder.add(layers.MaxPool1D())
+    # Input block
+    # feat_input = layers.Input(shape=input_shape, name='input')
 
-    encoder.add(layers.Conv1D(4 * filters, 3, padding='same', activation='relu'))
-    encoder.add(layers.BatchNormalization())
-    encoder.add(layers.SpatialDropout1D(dropout))
-    encoder.add(layers.MaxPool1D())
-
-    encoder.add(layers.GlobalMaxPool1D())
-
+    encoder = Sequential()
+    encoder.add(layers.BatchNormalization(axis=freq_axis, name='bn_0_freq'))
+    # CNN block
+    for i, sz in enumerate(pool_sz):
+        encoder.add(layers.Conv2D(filters=(i + 1) * nb_filters, kernel_size=(3, 3), padding='same'))
+        encoder.add(layers.BatchNormalization(axis=channel_axis))
+        encoder.add(layers.Activation(config['activation']))
+        encoder.add(layers.MaxPool2D(pool_size=(sz, sz)))
+        encoder.add(layers.Dropout(dropout_rate))
+    encoder.add(layers.MaxPool2D())
+    encoder.add(layers.GlobalMaxPool2D())
     encoder.add(layers.Dense(embedding_dimension))
 
+    # Unwrap network
+    # filters = 128
+    # feat_input = layers.Input(shape=(48000, 1), name='input')
+    # x = layers.Conv1D(filters, 3, padding='same', activation='relu')(feat_input)
+    # x = layers.BatchNormalization()(x)
+    # x = layers.SpatialDropout1D(dropout_rate)(x)
+    # x = layers.MaxPool1D(4, 4)(x)
+    #
+    # # Further convs
+    # x =layers.Conv1D(2 * filters, 3, padding='same', activation='relu')(x)
+    # x =layers.BatchNormalization()(x)
+    # x =layers.SpatialDropout1D(dropout_rate)(x)
+    # x =layers.MaxPool1D()(x)
+    #
+    # x =layers.Conv1D(3 * filters, 3, padding='same', activation='relu')(x)
+    # x =layers.BatchNormalization()(x)
+    # x =layers.SpatialDropout1D(dropout_rate)(x)
+    # x =layers.MaxPool1D()(x)
+    #
+    # x =layers.Conv1D(4 * filters, 3, padding='same', activation='relu')(x)
+    # x =layers.BatchNormalization()(x)
+    # x =layers.SpatialDropout1D(dropout_rate)(x)
+    # x =layers.MaxPool1D()(x)
+    #
+    # x =layers.GlobalMaxPool1D()(x)
+    #
+    # encoder =layers.Dense(embedding_dimension)(x)
     return encoder
 
 

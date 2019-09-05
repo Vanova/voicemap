@@ -26,7 +26,7 @@ def preprocess_instances(downsampling, whitening=True):
     2. Whiten audio segments to 0 mean and fixed RMS (aka volume)
     """
     def preprocess_instances_(instances):
-        instances = instances[:, ::downsampling, :]
+        instances = instances[:, ::downsampling, :] # reduce number of frames
         if whitening:
             instances = whiten(instances)
         return instances

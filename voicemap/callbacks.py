@@ -176,9 +176,11 @@ class SiameseValidator(ModelValidator):
                 query_sample, support_set_samples = batch_gen.build_n_shot_task(k_way, n_shot)
 
                 # k of the same utterances
-                input_1 = np.stack([query_sample[0]] * k_way)[:, :, np.newaxis]
+                input_1 = np.stack([query_sample[0]] * k_way)
+                input_1 = np.expand_dims(input_1, axis=-1)
                 # k different utterances, 0th is the same as in input_1
-                input_2 = support_set_samples[0][:, :, np.newaxis]
+                input_2 = support_set_samples[0]
+                input_2 = np.expand_dims(input_2, axis=-1)
                 # Pass an empty list to the labels parameter as preprocessor functions on batches not samples
                 ([input_1, input_2], _) = preprocessor(([input_1, input_2], []))
                 pred = model.predict([input_1, input_2])
