@@ -8,7 +8,6 @@ from keras.utils import Sequence
 from kaldi_python_io import Reader, ScriptReader
 from config import PATH, LIBRISPEECH_SAMPLING_RATE
 
-
 sex_to_label = {'M': False, 'F': True}
 label_to_sex = {False: 'M', True: 'F'}
 
@@ -30,6 +29,7 @@ class SREDataGenerator(Sequence):
         then a random number of 0s will be appended/prepended to each side to pad the sequence to the desired length.
         cache: bool. Whether or not to use the cached index file
     """
+
     def __init__(self, data_dir, wnd_size, stochastic=True):
         self.data_dir = data_dir
         self.stochastic = stochastic
@@ -87,12 +87,12 @@ class SREDataGenerator(Sequence):
     def get_alike_pairs(self, num_pairs):
         """Generates a list of 2-tuples containing pairs of dataset IDs belonging to the same speaker."""
         alike_pairs = pd.merge(
-            self.df.sample(num_pairs*2),
+            self.df.sample(num_pairs * 2),
             self.df,
             on='speaker_id'
-        ).sample(num_pairs)[['speaker_id', 'id_x', 'id_y']]
+        ).sample(num_pairs)[['speaker_id', 'file_id_x', 'file_id_y']]
 
-        alike_pairs = zip(alike_pairs['id_x'].values, alike_pairs['id_y'].values)
+        alike_pairs = zip(alike_pairs['file_id_x'].values, alike_pairs['file_id_y'].values)
 
         return alike_pairs
 
@@ -104,7 +104,7 @@ class SREDataGenerator(Sequence):
         random_sample_from_other_speakers = self.df[~self.df['speaker_id'].isin(
             random_sample['speaker_id'])].sample(num_pairs)
 
-        differing_pairs = zip(random_sample['id'].values, random_sample_from_other_speakers['id'].values)
+        differing_pairs = zip(random_sample['file_id'].values, random_sample_from_other_speakers['file_id'].values)
 
         return differing_pairs
 
@@ -118,24 +118,28 @@ class SREDataGenerator(Sequence):
         :return: Inputs for both sides of the siamese network and outputs indicating whether they are from the same
         speaker or not.
         """
-        alike_pairs = self.get_alike_pairs(batchsize // 2)
-
         # Take only the instances not labels and stack to form a batch of pairs of instances from the same speaker
-        # input_1_alike = np.stack([self[i][0] for i in zip(*alike_pairs)[0]])
-        # input_2_alike = np.stack([self[i][0] for i in zip(*alike_pairs)[1]])
-        input_1_alike = np.stack([self[i][0] for i in list(zip(*alike_pairs))[0]])
-        input_2_alike = np.stack([self[i][0] for i in list(zip(*alike_pairs)[1])])
+        alike_pairs = self.get_alike_pairs(batchsize // 2)
+        l = list(zip(*alike_pairs))
+        idx1 = [self.df[self.df['file_id'] == id].index[0] for id in l[0]]
+        idx2 = [self.df[self.df['file_id'] == id].index[0] for id in l[1]]
 
-        differing_pairs = self.get_differing_pairs(batchsize / 2)
+        input_1_alike = np.stack([self[i][0] for i in idx1])
+        input_2_alike = np.stack([self[i][0] for i in idx2])
 
         # Take only the instances not labels and stack to form a batch of pairs of instances from different speakers
-        input_1_different = np.stack([self[i][0] for i in list(zip(*differing_pairs)[0])])
-        input_2_different = np.stack([self[i][0] for i in list(zip(*differing_pairs)[1])])
+        differing_pairs = self.get_differing_pairs(batchsize // 2)
+        l = list(zip(*differing_pairs))
+        idx1 = [self.df[self.df['file_id'] == id].index[0] for id in l[0]]
+        idx2 = [self.df[self.df['file_id'] == id].index[0] for id in l[1]]
+        input_1_different = np.stack([self[i][0] for i in idx1])
+        input_2_different = np.stack([self[i][0] for i in idx2])
 
-        input_1 = np.vstack([input_1_alike, input_1_different])[:, :, np.newaxis]
-        input_2 = np.vstack([input_2_alike, input_2_different])[:, :, np.newaxis]
+        # Merge utterances
+        input_1 = np.vstack([input_1_alike, input_1_different])[:, :, :, np.newaxis]
+        input_2 = np.vstack([input_2_alike, input_2_different])[:, :, :, np.newaxis]
 
-        outputs = np.append(np.zeros(batchsize/2), np.ones(batchsize/2))[:, np.newaxis]
+        outputs = np.append(np.zeros(batchsize // 2), np.ones(batchsize // 2))[:, np.newaxis]
 
         return [input_1, input_2], outputs
 
@@ -155,10 +159,10 @@ class SREDataGenerator(Sequence):
         :return:
         """
         if k >= self.nunique_spks:
-            raise(ValueError, 'k must be smaller than the number of unique speakers in this dataset!')
+            raise (ValueError, 'k must be smaller than the number of unique speakers in this dataset!')
 
         if k <= 1:
-            raise(ValueError, 'k must be greater than or equal to one!')
+            raise (ValueError, 'k must be greater than or equal to one!')
 
         query = self.df.sample(1)
         query_sample = self[query.index.values[0]]
@@ -170,15 +174,15 @@ class SREDataGenerator(Sequence):
         # Sample k-1 speakers
         # TODO: weight by length here
         other_support_set_speakers = np.random.choice(
-            self.df[~is_query_speaker]['speaker_id'].unique(), k-1, replace=False)
+            self.df[~is_query_speaker]['speaker_id'].unique(), k - 1, replace=False)
 
         other_support_samples = []
-        for i in range(k-1):
+        for i in range(k - 1):
             is_same_speaker = self.df['speaker_id'] == other_support_set_speakers[i]
             other_support_samples.append(
                 self.df[~is_query_speaker & is_same_speaker].sample(n)
             )
-        support_set = pd.concat([correct_samples]+other_support_samples)
+        support_set = pd.concat([correct_samples] + other_support_samples)
         support_set_samples = tuple(np.stack(i) for i in zip(*[self[i] for i in support_set.index]))
 
         return query_sample, support_set_samples
