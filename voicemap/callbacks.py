@@ -26,11 +26,11 @@ class ModelValidator(Callback):
          vs = ModelValidator.validate_model(self.model, self.batch_gen, self.metrics)
          for k, v in vs.items():
              logs[k] = np.float64(v)
-    
+
          print(' BEFORE TRAINING: Validation loss: %.4f, Validation %s: %.4f / best %.4f' % (
              vs['val_loss'], self.monitor.upper(), vs[self.monitor], self.best_acc))
          print(logs)
-    
+
          if self.monitor_op(logs[self.monitor], self.best_acc):
              self.best_acc = logs[self.monitor]
              self.best_epoch = -1
@@ -126,11 +126,11 @@ class SiameseValidator(ModelValidator):
                                          self.num_tasks, self.n_shot, self.k_way)
         for k, v in vs.items():
              logs[k] = np.float64(v)
-    
+
         print(' BEFORE TRAINING: Validation loss: %.4f, Validation %s: %.4f / best %.4f' % (
             vs['val_loss'], self.monitor.upper(), vs[self.monitor], self.best_acc))
         print(logs)
-    
+
         if self.monitor_op(logs[self.monitor], self.best_acc):
             self.best_acc = logs[self.monitor]
             self.best_epoch = -1
