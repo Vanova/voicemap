@@ -67,8 +67,8 @@ siamese.summary()
 #################
 callbacks = [
     # First generate custom n-shot classification metric
-    NShotEvaluationCallback(
-        num_evaluation_tasks, n_shot_classification, k_way_classification, valid),
+    # NShotEvaluationCallback(
+    #     num_evaluation_tasks, n_shot_classification, k_way_classification, valid),
     SiameseValidator(batch_gen=valid,
                      num_tasks=num_evaluation_tasks,
                      n_shot=1,
@@ -106,7 +106,7 @@ siamese.fit_generator(
     validation_steps=100,
     epochs=num_epochs,
     workers=multiprocessing.cpu_count(),
-    verbose=1,
+    verbose=2,
     use_multiprocessing=True,
     callbacks=callbacks
 )

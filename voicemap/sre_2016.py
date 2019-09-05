@@ -53,17 +53,15 @@ class SREDataGenerator(Sequence):
         self.df = pd.DataFrame(columns=['speaker_id', 'file_id'])
         self.df['speaker_id'] = sall
         self.df['file_id'] = uall
-
-        length = []
-        for k in uall:
-            length.append(self.feat_reader[k].shape[0])
-        self.df['length'] = length
         self.nunique_spks = len(self.df['speaker_id'].unique())
 
+        # length = []
+        # for k in uall:
+        #     length.append(self.feat_reader[k].shape[0])
+        # self.df['length'] = length
         print('Finished indexing data. {} usable files found.'.format(len(self)))
 
     def __getitem__(self, index):
-        # instance, samplerate = sf.read(self.datasetid_to_filepath[index])
         fn = self.df['file_id'][index]
         instance = self.feat_reader[fn]
         # Choose a random sample of the file
@@ -89,7 +87,7 @@ class SREDataGenerator(Sequence):
     def get_alike_pairs(self, num_pairs):
         """Generates a list of 2-tuples containing pairs of dataset IDs belonging to the same speaker."""
         alike_pairs = pd.merge(
-            self.df.sample(num_pairs*2, weights='length'),
+            self.df.sample(num_pairs*2),
             self.df,
             on='speaker_id'
         ).sample(num_pairs)[['speaker_id', 'id_x', 'id_y']]
@@ -102,9 +100,9 @@ class SREDataGenerator(Sequence):
         """Generates a list of 2-tuples containing pairs of dataset IDs belonging to different speakers."""
         # First get a random sample from the dataset and then get a random sample from the remaining part of the dataset
         # that doesn't contain any speakers from the first random sample
-        random_sample = self.df.sample(num_pairs, weights='length')
+        random_sample = self.df.sample(num_pairs)
         random_sample_from_other_speakers = self.df[~self.df['speaker_id'].isin(
-            random_sample['speaker_id'])].sample(num_pairs, weights='length')
+            random_sample['speaker_id'])].sample(num_pairs)
 
         differing_pairs = zip(random_sample['id'].values, random_sample_from_other_speakers['id'].values)
 
@@ -162,12 +160,12 @@ class SREDataGenerator(Sequence):
         if k <= 1:
             raise(ValueError, 'k must be greater than or equal to one!')
 
-        query = self.df.sample(1, weights='length')
+        query = self.df.sample(1)
         query_sample = self[query.index.values[0]]
 
         is_query_speaker = self.df['speaker_id'] == query['speaker_id'].values[0]
         not_same_sample = self.df.index != query.index.values[0]
-        correct_samples = self.df[is_query_speaker & not_same_sample].sample(n, weights='length')
+        correct_samples = self.df[is_query_speaker & not_same_sample].sample(n)
 
         # Sample k-1 speakers
         # TODO: weight by length here
@@ -178,7 +176,7 @@ class SREDataGenerator(Sequence):
         for i in range(k-1):
             is_same_speaker = self.df['speaker_id'] == other_support_set_speakers[i]
             other_support_samples.append(
-                self.df[~is_query_speaker & is_same_speaker].sample(n, weights='length')
+                self.df[~is_query_speaker & is_same_speaker].sample(n)
             )
         support_set = pd.concat([correct_samples]+other_support_samples)
         support_set_samples = tuple(np.stack(i) for i in zip(*[self[i] for i in support_set.index]))
