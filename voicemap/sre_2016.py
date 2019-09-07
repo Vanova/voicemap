@@ -1,5 +1,6 @@
 import os
 import h5py
+from p_tqdm import p_imap
 import numpy as np
 import soundfile as sf
 import pandas as pd
@@ -45,8 +46,8 @@ class SREDataGenerator(Sequence):
         if not os.path.exists(hdf_file):
             print('[INFO] Need to cache features to hdf format...')
             self.ark2hdf_caching(scp_file=depends[0], hdf_file=hdf_file)
-        else:
-            self.feat_reader = h5py.File(hdf_file, 'r')
+
+        self.feat_reader = h5py.File(hdf_file, 'r')
 
         uall = []
         sall = []
@@ -189,14 +190,26 @@ class SREDataGenerator(Sequence):
     def ark2hdf_caching(scp_file, hdf_file):
         ark_reader = ScriptReader(scp_file)
         writer = vu.HDFWriter(file_name=hdf_file)
-        cnt = 0
-        for fn in ark_reader.index_keys:
-            feat = ark_reader[fn]
-            # dump features
-            writer.append(file_id=fn, feat=feat)
-            cnt += 1
-            print("%d. processed: %s" % (cnt, fn))
+        # cnt = 0
+        # for fn in ark_reader.index_keys:
+        #     feat = ark_reader[fn]
+        #     # dump features
+        #     writer.append(file_id=fn, feat=feat)
+        #     cnt += 1
+        #     print("%d. processed: %s" % (cnt, fn))
+        # writer.close()
+        ###
+        iterator = p_imap(lambda fn: SREDataGenerator._extraction_job(fn, ark_reader), ark_reader.index_keys)
+
+        for result in iterator:
+            for fn, feat in result.items():
+                writer.append(file_id=fn, feat=feat)
         writer.close()
+
+    @staticmethod
+    def _extraction_job(fname, ark_reader):
+        feat = ark_reader[fname]
+        return {fname: feat}
 
     @staticmethod
     def index_subset(subset_path):
