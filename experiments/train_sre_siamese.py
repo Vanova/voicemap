@@ -21,15 +21,13 @@ batchsize = 32  # 64
 filters = 128
 embedding_dimension = 64
 dropout = 0.1
-training_set = ['train-clean-100', 'train-clean-360']
-validation_set = 'dev-clean'
 pad = True
 num_epochs = 200
 num_evaluation_tasks = 500
 n_shot_classification = 1
 k_way_classification = 5
 
-val_metrics = ['pooled_eer', 'accuracy', 'micro_f1', 'class_wise_eer']
+val_metrics = ['pooled_eer', 'accuracy', 'micro_f1']
 
 # Derived parameters
 fbanks = 64
