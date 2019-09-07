@@ -4,6 +4,7 @@ from keras.models import clone_model
 from tqdm import tqdm
 from scipy.spatial.distance import cdist
 import keras.backend as K
+import h5py
 
 
 def get_bottleneck(classifier, samples):
@@ -25,8 +26,9 @@ def preprocess_instances(downsampling, whitening=True):
     1. Downsampling audio segments to desired sampling rate
     2. Whiten audio segments to 0 mean and fixed RMS (aka volume)
     """
+
     def preprocess_instances_(instances):
-        instances = instances[:, ::downsampling, :] # reduce number of frames
+        instances = instances[:, ::downsampling, :]  # reduce number of frames
         if whitening:
             instances = whiten(instances)
         return instances
@@ -45,6 +47,7 @@ class BatchPreProcessor(object):
         instance_preprocessor: function. Pre-processing function to apply to input features of the batch.
         target_preprocessor: function. Pre-processing function to apply to output labels of the batch.
     """
+
     def __init__(self, mode, instance_preprocessor, target_preprocessor=lambda x: x):
         assert mode in ('siamese', 'classifier')
         self.mode = mode
@@ -88,7 +91,7 @@ def contrastive_loss(y_true, y_pred):
 def whiten(batch, rms=0.038021):
     """This function whitens a batch so each sample has 0 mean and the same root mean square amplitude i.e. volume."""
     if len(batch.shape) != 3:
-        raise(ValueError, 'Input must be a 3D array of shape (n_segments, n_timesteps, 1).')
+        raise (ValueError, 'Input must be a 3D array of shape (n_segments, n_timesteps, 1).')
 
     # Subtract mean
     sample_wise_mean = batch.mean(axis=1)
@@ -138,13 +141,13 @@ def n_shot_task_evaluation(model, dataset, preprocessor, num_tasks, n, k, networ
     elif n > 1 or network_type == 'classifier':
         # Create encoder network from earlier layers
         if network_type == 'siamese':
-           encoder = model.layers[2]
+            encoder = model.layers[2]
         elif network_type == 'classifier':
             encoder = clone_model(model)
             encoder.set_weights(model.get_weights())
             encoder.pop()
         else:
-            raise(ValueError, 'mode must be one of (siamese, classifier)')
+            raise (ValueError, 'mode must be one of (siamese, classifier)')
 
         for i_eval in tqdm((range(num_tasks))):
             query_sample, support_set_samples = dataset.build_n_shot_task(k, n)
@@ -205,13 +208,13 @@ def n_shot_task_evaluation(model, dataset, preprocessor, num_tasks, n, k, networ
                 # As dot product is a kind of similarity let's make this a "distance" by flipping the sign
                 pred = -pred
             else:
-                raise(ValueError, 'Distance must be in (euclidean, cosine, dot_product)')
+                raise (ValueError, 'Distance must be in (euclidean, cosine, dot_product)')
 
             if np.argmin(pred) == 0:
                 # 0 is the correct result as by the function definition
                 n_correct += 1
     else:
-        raise(ValueError, "n must be >= 1")
+        raise (ValueError, "n must be >= 1")
 
     return n_correct
 
@@ -228,6 +231,7 @@ class NShotEvaluationCallback(Callback):
         verbose: bool. Whether to enable verbose printing
         mode: str. One of {siamese, classifier}
     """
+
     def __init__(self, num_tasks, n_shot, k_way, dataset, preprocessor=lambda x: x, mode='siamese'):
         super(NShotEvaluationCallback, self).__init__()
         self.num_tasks = num_tasks
@@ -250,3 +254,29 @@ class NShotEvaluationCallback(Callback):
         logs['val_{}-shot_acc'.format(self.n_shot)] = n_shot_acc
 
         print('val_%d-shot_acc: %.4f' % (self.n_shot, n_shot_acc))
+
+
+class HDFWriter(object):
+    """
+    Save data features in single hdf5 file storage
+        file_name: String. Hdf5 file storage name
+    """
+
+    def __init__(self, file_name):
+        self.hdf = h5py.File(file_name, "w")
+
+    def append(self, file_id, feat, tag=None):
+        """
+        file_id: unique identifier of the data feature file
+        tag: hot-encoded 1D array, where '1' marks class on
+        """
+        if file_id in self.hdf.keys():
+            print('[WARN] File already exists in the storage: %s' % file_id)
+        else:
+            # if file not exists then store it to hdf
+            data = self.hdf.create_dataset(name=file_id, data=feat)
+            if tag is not None:
+                data.attrs['tag'] = tag
+
+    def close(self):
+        self.hdf.close()

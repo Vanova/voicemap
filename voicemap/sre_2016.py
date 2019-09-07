@@ -1,19 +1,16 @@
 import os
+import h5py
 import numpy as np
 import soundfile as sf
 import pandas as pd
 from tqdm import tqdm
-import random as rnd
 from keras.utils import Sequence
 from kaldi_python_io import Reader, ScriptReader
+import voicemap.utils as vu
 from config import PATH, LIBRISPEECH_SAMPLING_RATE
-
-sex_to_label = {'M': False, 'F': True}
-label_to_sex = {False: 'M', True: 'F'}
 
 
 class SREDataGenerator(Sequence):
-    # TODO load data from Kaldi ark
     """This class subclasses the Keras Sequence object. The __getitem__ function will return a raw audio sample and it's
     label.
 
@@ -41,9 +38,15 @@ class SREDataGenerator(Sequence):
                 raise RuntimeError('Missing file {}!'.format(depend))
 
         self.wnd_size = wnd_size
-        self.feat_reader = ScriptReader(depends[0])
         self.spk2utt = Reader(depends[1], num_tokens=-1)
         self.utt2spk = Reader(depends[2], num_tokens=-1)
+
+        hdf_file = os.path.join(data_dir, 'feats.hdf')
+        if not os.path.exists(hdf_file):
+            print('[INFO] Need to cache features to hdf format...')
+            self.ark2hdf_caching(scp_file=depends[0], hdf_file=hdf_file)
+        else:
+            self.feat_reader = h5py.File(hdf_file, 'r')
 
         uall = []
         sall = []
@@ -54,16 +57,11 @@ class SREDataGenerator(Sequence):
         self.df['speaker_id'] = sall
         self.df['file_id'] = uall
         self.nunique_spks = len(self.df['speaker_id'].unique())
-
-        # length = []
-        # for k in uall:
-        #     length.append(self.feat_reader[k].shape[0])
-        # self.df['length'] = length
         print('Finished indexing data. {} usable files found.'.format(len(self)))
 
     def __getitem__(self, index):
         fn = self.df['file_id'][index]
-        instance = self.feat_reader[fn]
+        instance = np.array(self.feat_reader[fn], dtype=np.float32)
         # Choose a random sample of the file
         if self.stochastic:
             ut_len = instance.shape[0] - self.wnd_size
@@ -186,6 +184,19 @@ class SREDataGenerator(Sequence):
         support_set_samples = tuple(np.stack(i) for i in zip(*[self[i] for i in support_set.index]))
 
         return query_sample, support_set_samples
+
+    @staticmethod
+    def ark2hdf_caching(scp_file, hdf_file):
+        ark_reader = ScriptReader(scp_file)
+        writer = vu.HDFWriter(file_name=hdf_file)
+        cnt = 0
+        for fn in ark_reader.index_keys:
+            feat = ark_reader[fn]
+            # dump features
+            writer.append(file_id=fn, feat=feat)
+            cnt += 1
+            print("%d. processed: %s" % (cnt, fn))
+        writer.close()
 
     @staticmethod
     def index_subset(subset_path):

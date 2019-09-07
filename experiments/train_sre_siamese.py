@@ -39,7 +39,6 @@ param_str = 'siamese__filters_{}__embed_{}__drop_{}__pad={}'.format(filters, emb
 ###################
 # Create datasets #
 ###################
-# TODO replace with Kaldi
 data_dir = '/home/vano/wrkdir/projects_data/sre_2019/toy_dataset'
 train = SREDataGenerator(data_dir, window_size, stochastic=True)
 valid = SREDataGenerator(data_dir, window_size, stochastic=False)
