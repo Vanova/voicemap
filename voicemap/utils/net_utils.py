@@ -4,7 +4,6 @@ from keras.models import clone_model
 from tqdm import tqdm
 from scipy.spatial.distance import cdist
 import keras.backend as K
-import h5py
 
 
 def get_bottleneck(classifier, samples):
@@ -254,29 +253,3 @@ class NShotEvaluationCallback(Callback):
         logs['val_{}-shot_acc'.format(self.n_shot)] = n_shot_acc
 
         print('val_%d-shot_acc: %.4f' % (self.n_shot, n_shot_acc))
-
-
-class HDFWriter(object):
-    """
-    Save data features in single hdf5 file storage
-        file_name: String. Hdf5 file storage name
-    """
-
-    def __init__(self, file_name):
-        self.hdf = h5py.File(file_name, "w")
-
-    def append(self, file_id, feat, tag=None):
-        """
-        file_id: unique identifier of the data feature file
-        tag: hot-encoded 1D array, where '1' marks class on
-        """
-        if file_id in self.hdf.keys():
-            print('[WARN] File already exists in the storage: %s' % file_id)
-        else:
-            # if file not exists then store it to hdf
-            data = self.hdf.create_dataset(name=file_id, data=feat)
-            if tag is not None:
-                data.attrs['tag'] = tag
-
-    def close(self):
-        self.hdf.close()

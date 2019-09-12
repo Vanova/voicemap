@@ -7,7 +7,7 @@ import multiprocessing
 
 from voicemap.utils import preprocess_instances, NShotEvaluationCallback, BatchPreProcessor
 from voicemap.models import get_baseline_convolutional_encoder, build_siamese_net
-from voicemap.sre_2016 import SREDataGenerator
+from voicemap.sre_2016 import HDFDataGenerator
 from voicemap.librispeech import LibriSpeechDataset
 from config import LIBRISPEECH_SAMPLING_RATE, PATH
 
@@ -45,8 +45,6 @@ param_str = 'siamese__filters_{}__embed_{}__drop_{}__pad={}'.format(filters, emb
 # TODO replace with Kaldi
 data_dir = '/home/vano/wrkdir/datasets/LibriSpeech'
 # data_dir = '/home/vano/wrkdir/projects_data/sre_2019/toy_dataset'
-# train = SREDataGenerator(data_dir, training_set, stochastic=True)
-# valid = SREDataGenerator(data_dir, validation_set, stochastic=False)
 
 train = LibriSpeechDataset(data_dir, training_set, n_seconds, pad=pad)
 valid = LibriSpeechDataset(data_dir, validation_set, n_seconds, stochastic=False, pad=pad)

@@ -114,7 +114,7 @@ classifier.add(Dense(train.num_classes(), activation='softmax'))
 opt = Adam(clipnorm=1.)
 classifier.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
 plot_model(classifier, show_shapes=True, to_file=PATH + '/plots/classifier.png')
-print classifier.summary()
+classifier.summary()
 
 
 #################

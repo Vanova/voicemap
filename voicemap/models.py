@@ -103,3 +103,7 @@ def build_siamese_net(encoder, input_shape,  distance_metric='uniform_euclidean'
     siamese = Model(inputs=[input_1, input_2], outputs=output)
 
     return siamese
+
+
+def build_wave_siamese():
+    pass

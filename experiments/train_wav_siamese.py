@@ -3,10 +3,10 @@ import multiprocessing
 from keras.optimizers import Adam, RMSprop
 from keras.callbacks import CSVLogger, ModelCheckpoint, ReduceLROnPlateau, TensorBoard, EarlyStopping
 from voicemap.callbacks import SiameseValidator
-from voicemap.utils import preprocess_instances, NShotEvaluationCallback, BatchPreProcessor
-from voicemap.models import get_baseline_convolutional_encoder, build_siamese_net
-from voicemap.sre_2016 import HDFDataGenerator
-from config import LIBRISPEECH_SAMPLING_RATE, PATH
+from voicemap.utils.net_utils import preprocess_instances, NShotEvaluationCallback, BatchPreProcessor
+import voicemap.wav_models as WM
+from voicemap.sre_2016 import HDFDataGenerator, WavDataGenerator
+import config as cfg
 
 # Mute excessively verbose Tensorflow output
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -16,7 +16,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 ##############
 n_seconds = 3
 window_size = 170
-downsampling = 1  # 4
+downsampling = 4
 batchsize = 32  # 64
 filters = 128
 embedding_dimension = 64
@@ -30,16 +30,20 @@ k_way_classification = 5
 val_metrics = ['pooled_eer', 'accuracy', 'micro_f1']
 
 # Derived parameters
-fbanks = 64
-input_dimension = (window_size, fbanks, 1)
+# fbanks = 64
+# input_dimension = (window_size, fbanks, 1)
+input_length = int(cfg.SRE_SAMPLING_RATE * n_seconds / downsampling)
 param_str = 'siamese__filters_{}__embed_{}__drop_{}__pad={}'.format(filters, embedding_dimension, dropout, pad)
 
 ###################
 # Create datasets #
 ###################
-data_dir = '/home/vano/wrkdir/projects_data/sre_2019/toy_dataset'
-train = HDFDataGenerator(data_dir, window_size, stochastic=True)
-valid = HDFDataGenerator(data_dir, window_size, stochastic=False)
+train_set = 'toy_dataset'
+val_set = 'toy_dataset'
+data_dir = '/home/vano/wrkdir/projects_data/sre_2019/'
+
+train = WavDataGenerator(data_dir, train_set, n_seconds, stochastic=True, pad=pad)
+valid = WavDataGenerator(data_dir, val_set, n_seconds, stochastic=False, pad=pad)
 
 batch_preprocessor = BatchPreProcessor('siamese', preprocess_instances(downsampling))
 train_generator = (batch for batch in train.yield_verification_batches(batchsize))
@@ -48,15 +52,10 @@ valid_generator = (batch for batch in valid.yield_verification_batches(batchsize
 ################
 # Define model #
 ################
-net_config = {
-      'activation': 'elu',
-      'dropout': 0.1,
-      'feature_maps': filters,
-}
-encoder = get_baseline_convolutional_encoder(embedding_dimension, input_dimension, config=net_config)
-siamese = build_siamese_net(encoder, input_dimension, distance_metric='uniform_euclidean')
-# opt = Adam(clipnorm=1.)
-opt = RMSprop()
+encoder = WM.get_baseline_convolutional_encoder(filters, embedding_dimension, dropout=dropout)
+siamese = WM.build_siamese_net(encoder, input_shape=(input_length, 1), distance_metric='uniform_euclidean')
+opt = Adam(clipnorm=1.)
+# opt = RMSprop()
 siamese.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
 siamese.summary()
 
@@ -75,9 +74,9 @@ callbacks = [
                      monitor='pooled_eer',
                      mode='min'),
     # Then log and checkpoint
-    CSVLogger(os.path.join(PATH, 'logs/{}.csv'.format(param_str))),
+    CSVLogger(os.path.join(cfg.PATH, 'logs/{}.csv'.format(param_str))),
     ModelCheckpoint(
-        os.path.join(PATH, 'models/{}.hdf5'.format(param_str)),
+        os.path.join(cfg.PATH, 'models/{}.hdf5'.format(param_str)),
         monitor='pooled_eer',
         mode='min',
         save_best_only=True,
@@ -93,7 +92,7 @@ callbacks = [
         mode='min',
         min_delta=0.001),
     TensorBoard(
-        log_dir=os.path.join(PATH, 'logs'),
+        log_dir=os.path.join(cfg.PATH, 'logs'),
         write_graph=True)
 ]
 
