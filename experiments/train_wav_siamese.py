@@ -30,16 +30,19 @@ k_way_classification = 5
 val_metrics = ['pooled_eer', 'accuracy', 'micro_f1']
 
 # Derived parameters
-# fbanks = 64
-# input_dimension = (window_size, fbanks, 1)
 input_length = int(cfg.SRE_SAMPLING_RATE * n_seconds / downsampling)
 param_str = 'siamese__filters_{}__embed_{}__drop_{}__pad={}'.format(filters, embedding_dimension, dropout, pad)
 
 ###################
 # Create datasets #
 ###################
-train_set = 'toy_dataset'
-val_set = 'toy_dataset'
+# === debug
+# train_set = 'toy_dataset'
+# val_set = 'toy_dataset'
+# data_dir = '/home/vano/wrkdir/projects_data/sre_2019/'
+# === training
+train_set = 'swbd_sre_small_fbank'
+val_set = 'swbd_sre_small_fbank'
 data_dir = '/home/vano/wrkdir/projects_data/sre_2019/'
 
 train = WavDataGenerator(data_dir, train_set, n_seconds, stochastic=True, pad=pad)
