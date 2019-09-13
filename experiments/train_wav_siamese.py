@@ -37,13 +37,13 @@ param_str = 'siamese__filters_{}__embed_{}__drop_{}__pad={}'.format(filters, emb
 # Create datasets #
 ###################
 # === debug
-train_set = 'toy_dataset'
-val_set = 'toy_dataset'
-data_dir = '/home/vano/wrkdir/projects_data/sre_2019/'
-# === training
-# train_set = 'swbd_sre_small_fbank'
-# val_set = 'swbd_sre_small_fbank'
+# train_set = 'toy_dataset'
+# val_set = 'toy_dataset'
 # data_dir = '/home/vano/wrkdir/projects_data/sre_2019/'
+# === training
+train_set = 'swbd_sre_small_fbank'
+val_set = 'swbd_sre_small_fbank'
+data_dir = '/home/vano/wrkdir/projects_data/sre_2019/'
 
 train = WavDataGenerator(data_dir, train_set, n_seconds, stochastic=True, pad=pad)
 valid = WavDataGenerator(data_dir, val_set, n_seconds, stochastic=False, pad=pad)

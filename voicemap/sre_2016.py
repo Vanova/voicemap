@@ -328,7 +328,7 @@ class WavDataGenerator(Sequence):
         rnd_smp_other_spkrs = self.meta_data[~self.meta_data['speaker_id'].isin(
             rnd_smp['speaker_id'])].sample(num_pairs, weights='length')
 
-        differing_pairs = zip(rnd_smp['id'].values, rnd_smp_other_spkrs['id'].values)
+        differing_pairs = zip(rnd_smp['file_id'].values, rnd_smp_other_spkrs['file_id'].values)
         return differing_pairs
 
     def build_verification_batch(self, batchsize):
