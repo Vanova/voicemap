@@ -37,20 +37,20 @@ param_str = 'siamese__filters_{}__embed_{}__drop_{}__pad={}'.format(filters, emb
 # Create datasets #
 ###################
 # === debug
-# train_set = 'toy_dataset'
-# val_set = 'toy_dataset'
-# data_dir = '/home/vano/wrkdir/projects_data/sre_2019/'
-# === training
-train_set = 'swbd_sre_small_fbank'
-val_set = 'swbd_sre_small_fbank'
+train_set = 'toy_dataset'
+val_set = 'toy_dataset'
 data_dir = '/home/vano/wrkdir/projects_data/sre_2019/'
+# === training
+# train_set = 'swbd_sre_small_fbank'
+# val_set = 'swbd_sre_small_fbank'
+# data_dir = '/home/vano/wrkdir/projects_data/sre_2019/'
 
 train = WavDataGenerator(data_dir, train_set, n_seconds, stochastic=True, pad=pad)
 valid = WavDataGenerator(data_dir, val_set, n_seconds, stochastic=False, pad=pad)
 
 batch_preprocessor = BatchPreProcessor('siamese', preprocess_instances(downsampling))
-train_generator = (batch for batch in train.yield_verification_batches(batchsize))
-valid_generator = (batch for batch in valid.yield_verification_batches(batchsize))
+train_generator = (batch_preprocessor(batch) for batch in train.yield_verification_batches(batchsize))
+valid_generator = (batch_preprocessor(batch) for batch in valid.yield_verification_batches(batchsize))
 
 ################
 # Define model #
@@ -75,7 +75,8 @@ callbacks = [
                      k_way=2,  # number of speakers sampled
                      metrics=val_metrics,
                      monitor='pooled_eer',
-                     mode='min'),
+                     mode='min',
+                     preprocessor=batch_preprocessor),
     # Then log and checkpoint
     CSVLogger(os.path.join(cfg.PATH, 'logs/{}.csv'.format(param_str))),
     ModelCheckpoint(

@@ -267,13 +267,21 @@ class WavDataGenerator(Sequence):
         # Index of dataframe has direct correspondence to item in dataset
         self.meta_data = self.meta_data.reset_index(drop=True)
         self.unique_speakers = len(self.meta_data['speaker_id'].unique())
-        print('Finished indexing data. %d usable utterances found. %d unique speakers.' % (len(self), self.unique_speakers))
+        print('Finished indexing data. %d usable utterances found. %d unique speakers.' % (
+        len(self), self.unique_speakers))
 
     def __len__(self):
         return len(self.meta_data)
 
     def __getitem__(self, index):
-        instance, samplerate = sf.read(self.meta_data['file_path'][index])
+        full_fpath = os.path.join(self.data_dir, 'toy_dataset', 'wav', self.meta_data['file_path'][index])
+        # full_fpath = self.meta_data['file_path'][index]
+        pipe = eval(self.meta_data['pipeline'][index])
+        ch = int(pipe[5])
+        assert ch in (1, 2)
+
+        instance, samplerate = sf.read(full_fpath)
+        instance = instance if len(instance.shape) == 1 else instance[:, ch - 1]
         # Choose a random sample of the file
         if self.stochastic:
             start = np.random.randint(0, max(len(instance) - self.wnd_length, 1))
@@ -293,14 +301,14 @@ class WavDataGenerator(Sequence):
                 before_len = np.random.randint(0, less_timesteps)
                 after_len = less_timesteps - before_len
 
-                chunk = np.pad(instance, (before_len, after_len), 'constant')
+                instance = np.pad(instance, (before_len, after_len), 'constant')
             else:
                 # Deterministic padding. Append 0s to reach self.fragment_length
-                chunk = np.pad(instance, (0, less_timesteps), 'constant')
+                instance = np.pad(instance, (0, less_timesteps), 'constant')
 
         label = self.meta_data['speaker_id'][index]
 
-        return chunk, label
+        return instance, label
 
     def get_alike_pairs(self, num_pairs):
         """Generates a list of 2-tuples containing pairs of dataset IDs belonging to the same speaker."""
@@ -373,10 +381,10 @@ class WavDataGenerator(Sequence):
         :return:
         """
         if k >= self.unique_speakers:
-            raise(ValueError, 'k must be smaller than the number of unique speakers in this dataset!')
+            raise (ValueError, 'k must be smaller than the number of unique speakers in this dataset!')
 
         if k <= 1:
-            raise(ValueError, 'k must be greater than or equal to one!')
+            raise (ValueError, 'k must be greater than or equal to one!')
 
         query = self.meta_data.sample(1, weights='length')
         query_sample = self[query.index.values[0]]
@@ -391,12 +399,12 @@ class WavDataGenerator(Sequence):
             self.meta_data[~is_query_speaker]['speaker_id'].unique(), k - 1, replace=False)
 
         other_support_samples = []
-        for i in range(k-1):
+        for i in range(k - 1):
             is_same_speaker = self.meta_data['speaker_id'] == other_support_set_speakers[i]
             other_support_samples.append(
                 self.meta_data[~is_query_speaker & is_same_speaker].sample(n, weights='length')
             )
-        support_set = pd.concat([correct_samples]+other_support_samples)
+        support_set = pd.concat([correct_samples] + other_support_samples)
         support_set_samples = tuple(np.stack(i) for i in zip(*[self[i] for i in support_set.index]))
 
         return query_sample, support_set_samples
@@ -426,10 +434,13 @@ class WavDataGenerator(Sequence):
         fpaths = []
         pipes = []
         for u, s in utt2spk.index_dict.items():
-            uall.append(u)
-            sall.append(s[0])
-            fpaths.append(wavscp[u][6])
-            pipes.append(wavscp[u])
+            if len(wavscp[u]) == 8:
+                uall.append(u)
+                sall.append(s[0])
+                fpaths.append(wavscp[u][6])
+                pipes.append(wavscp[u])
+            else:
+                print('[Warning] unknown pipline format for %s: %s' % (u, ' '.join(wavscp[u])))
 
         df = pd.DataFrame(columns=['file_id', 'speaker_id', 'file_path', 'pipeline', 'samples', 'length'])
         df['file_id'] = uall
@@ -441,6 +452,7 @@ class WavDataGenerator(Sequence):
         progress_bar = tqdm(total=df['file_id'].size)
         for fp in df['file_path']:
             full_fpath = os.path.join(subset_path, 'wav', fp)
+            # full_fpath = fp
             if not os.path.isfile(full_fpath):
                 print('[Warning] file does not exist: %d' % full_fpath)
                 continue
